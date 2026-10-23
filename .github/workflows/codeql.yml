@@ -1,0 +1,115 @@
+name: 'CodeQL Advanced Static Analysis'
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+env:
+  DB_PATH: 'mycodeql'
+
+jobs:
+  build-database:
+    name: Build DB
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Set up OW Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dosbox ltrace
+        
+        echo "=== Compiler Info ==="
+        gcc -v
+
+    - name: Setup CodeQL CLI
+      id: codeql
+      uses: github/codeql-action/setup-codeql@v4
+
+    - name: Create CodeQL Database
+      run: |
+        ${{ steps.codeql.outputs.codeql-path }} database create "${{ runner.temp }}/${{ env.DB_PATH }}" \
+          --language=cpp \
+          --no-run-unnecessary-builds \
+          --command="./ci/codeql.sh"
+      env:
+        OWROOT:     ${{github.workspace}}
+        OWTOOLS:    GCC
+        OWDOSBOX:   dosbox
+        OWVERBOSE:  1
+
+    # save the finished database as a GitHub Actions artifact
+    - name: Upload database
+      uses: actions/upload-artifact@v6
+      with:
+        name: codeql-database-artifact
+        path: ${{ runner.temp }}/${{ env.DB_PATH }}
+        retention-days: 1
+
+  analyze-database:
+    needs: build-database
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - category: 'all-cpp'
+            query_selection: '.github/codeql/queryf1.qls'
+          - category: 'qry-1-cpp'
+            query_selection: 'codeql/cpp-queries:Security/CWE/CWE-120/UnboundedWrite.ql'
+          - category: "qry-2-cpp"
+            query_selection: 'codeql/cpp-queries:Security/CWE/CWE-119/OverrunWriteProductFlow.ql'
+          - category: "qry-3-cpp"
+            query_selection: 'codeql/cpp-queries:Security/CWE/CWE-022/TaintedPath.ql'
+          - category: "qry-4-cpp"
+            query_selection: 'codeql/cpp-queries:Security/CWE/CWE-134/UncontrolledFormatString.ql'
+          - category: "qry-5-cpp"
+            query_selection: 'codeql/cpp-queries:Security/CWE/CWE-190/TaintedAllocationSize.ql'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Setup CodeQL CLI
+      id: codeql
+      uses: github/codeql-action/setup-codeql@v4
+
+    - name: Download CodeQL Query Packs
+      run: |
+        ${{ steps.codeql.outputs.codeql-path }} pack download codeql/cpp-queries
+
+    - name: Download Database Artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: codeql-database-artifact
+        path: ${{ runner.temp }}/${{ env.DB_PATH }}
+
+    - name: Run Matrix Security Analysis
+      continue-on-error: true
+      run: |
+        ${{ steps.codeql.outputs.codeql-path }} database analyze "${{ runner.temp }}/${{ env.DB_PATH }}" \
+          ${{ matrix.query_selection }} \
+          --format=sarif-latest \
+          --output=results-${{ matrix.category }}.sarif \
+          --verbosity=progress \
+          --threads=0 \
+          --ram=14000 \
+          --timeout=300
+
+    - name: Upload Results to GitHub
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: results-${{ matrix.category }}.sarif
+        category: ${{ matrix.category }}

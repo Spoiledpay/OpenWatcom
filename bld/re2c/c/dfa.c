@@ -1,0 +1,242 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2002-2026 The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
+*               DESCRIBE IT HERE!
+*
+****************************************************************************/
+
+
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include "globals.h"
+#include "substr.h"
+#include "dfa.h"
+#include "mem.h"
+
+
+typedef struct GoTo {
+    Char        ch;
+    void        *to;
+} GoTo;
+
+State *State_new( void )
+{
+    State   *st;
+
+    st = MemAlloc( sizeof( *st ) );
+    st->label = 0;
+    st->rule = NULL;
+    st->next = NULL;
+    st->link = NULL;
+    st->depth = 0;
+    st->kCount = 0;
+    st->kernel = NULL;
+    st->isBase = 0;
+    st->referenced = 0;
+    st->action = NULL;
+    st->go.nSpans = 0;
+    st->go.span = NULL;
+    return( st );
+}
+
+static void State_delete( State *st )
+{
+    if( st->kernel != NULL )
+        MemFree( st->kernel );
+    if( st->go.span != NULL )
+        MemFree( st->go.span );
+    Action_delete( st );
+    MemFree( st );
+}
+
+static Ins **closure( Ins **cP, Ins *i )
+{
+    while( !i->i.marked ) {
+        i->i.marked = true;
+        *(cP++) = i;
+        if( i->i.tag == FORK ) {
+            cP = closure( cP, i + 1 );
+            i = (Ins *)i->i.link;
+        } else if( i->i.tag == GOTO ) {
+            i = (Ins *)i->i.link;
+        } else {
+            break;
+        }
+    }
+    return( cP );
+}
+
+static State *DFA_findState( DFA *d, Ins **kernel, uint kCount )
+{
+    Ins     **cP, **iP, *i;
+    State   *st;
+
+    kernel[kCount] = NULL;
+    cP = kernel;
+    for( iP = kernel; (i = *iP) != NULL; ++iP ) {
+        if( i->i.tag == CHAR
+          || i->i.tag == TERM ) {
+            *cP++ = i;
+        } else {
+            i->i.marked = false;
+        }
+    }
+    kCount = (uint)( cP - kernel );
+    kernel[kCount] = NULL;
+    for( st = d->head; st != NULL; st = st->next ) {
+        if( st->kCount == kCount ) {
+            for( iP = st->kernel; (i = *iP) != NULL; ++iP ) {
+                if( !i->i.marked ) {
+                    break;
+                }
+            }
+            if( i == NULL ) {
+                break;
+            }
+        }
+    }
+    if( st == NULL ) {
+        st = State_new();
+        DFA_addState( d, d->tail, st );
+        st->kCount = kCount;
+        st->kernel = MemAlloc( ( kCount + 1 ) * sizeof( *st->kernel ) );
+        memcpy( st->kernel, kernel, ( kCount + 1 ) * sizeof( *st->kernel ) );
+        st->link = d->toDo;
+        d->toDo = st;
+    }
+    for( iP = kernel; (i = *iP) != NULL; ++iP ) {
+        i->i.marked = false;
+    }
+    return( st );
+}
+
+DFA *DFA_new( Ins *ins, uint ni, Char lb, Char ub, Char *rep, uint nstate )
+{
+    DFA     *d;
+    Ins     **work;
+    uint    nc;
+    GoTo    *goTo;
+    Span    *span;
+
+    d = MemAlloc( sizeof( *d ) );
+    work = MemAlloc( ( ni + 1 ) * sizeof( *work ) );
+    nc = ub - lb;
+    goTo = MemAlloc( nc * sizeof( *goTo ) );
+    memset( goTo, 0, nc * sizeof( *goTo ) );
+    span = MemAlloc( nc * sizeof( *span ) );
+    d->lbChar = lb;
+    d->ubChar = ub;
+    d->tail = &d->head;
+    d->head = NULL;
+    d->nStates = nstate;
+    d->toDo = NULL;
+    DFA_findState( d, work, (uint)( closure( work, &ins[0] ) - work ) );
+    while( d->toDo != NULL ) {
+        State   *st = d->toDo;
+        Ins     **cP, **iP, *i;
+        uint    nGoTos = 0;
+        uint    j;
+
+        d->toDo = st->link;
+        st->rule = NULL;
+        for( iP = st->kernel; (i = *iP) != NULL; ++iP ) {
+            if( i->i.tag == CHAR ) {
+                Ins *j2;
+                for( j2 = i + 1; j2 < (Ins *)i->i.link; ++j2 ) {
+                    j2->c.link = goTo[j2->c.value - lb].to;
+                    if( j2->c.link == NULL )
+                        goTo[nGoTos++].ch = j2->c.value;
+                    goTo[j2->c.value - lb].to = j2;
+                }
+            } else if( i->i.tag == TERM ) {
+                if( st->rule == NULL
+                  || ((RegExp *)i->i.link)->u.RuleOp.accept < st->rule->u.RuleOp.accept ) {
+                    st->rule = (RegExp *)i->i.link;
+                }
+            }
+        }
+
+        for( j = 0; j < nGoTos; ++j ) {
+            GoTo *go = &goTo[goTo[j].ch - lb];
+            i = (Ins*)go->to;
+            for( cP = work; i != NULL; i = (Ins *)i->c.link ) {
+                cP = closure( cP, i + i->c.bump );
+            }
+            go->to = DFA_findState( d, work, (uint)( cP - work ) );
+        }
+
+        st->go.nSpans = 0;
+        for( j = 0; j < nc; ) {
+            State *to = (State *)goTo[rep[j]].to;
+            while( ++j < nc && goTo[rep[j]].to == to )
+                ;
+            span[st->go.nSpans].ub = (Char)( lb + j );
+            span[st->go.nSpans].to = to;
+            st->go.nSpans++;
+        }
+
+        for( j = nGoTos; j-- > 0; ) {
+            goTo[goTo[j].ch - lb].to = NULL;
+        }
+
+        st->go.span = MemAlloc( st->go.nSpans * sizeof( *st->go.span ) );
+        memcpy( st->go.span, span, st->go.nSpans * sizeof( *st->go.span ) );
+
+        Action_delete( st );
+
+        Action_new_Match( st );
+
+    }
+    MemFree( span );
+    MemFree( goTo );
+    MemFree( work );
+
+    return( d );
+}
+
+void DFA_delete( DFA *d )
+{
+    State   *st;
+
+    while( (st = d->head) != NULL ) {
+        d->head = st->next;
+        State_delete( st );
+    }
+    MemFree( d );
+}
+
+void DFA_addState( DFA *d, State **st_before, State *st )
+{
+    st->label = d->nStates++;
+    st->next = *st_before;
+    *st_before = st;
+    if( st_before == d->tail ) {
+        d->tail = &st->next;
+    }
+}

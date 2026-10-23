@@ -1,0 +1,74 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2026      The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
+*               DESCRIBE IT HERE!
+*
+****************************************************************************/
+
+
+#ifndef SEMSTR_INCLUDED
+#define SEMSTR_INCLUDED
+
+typedef struct FullStringTableBlock {
+    struct FullStringTableBlock     *Next;
+    struct FullStringTableBlock     *Prev;
+    uint_16                         BlockNum;
+    bool                            iswin32;
+    ResMemFlags                     Flags;
+    uint_32                         codePage;   // for OS/2
+    StringTableBlock                Block;
+} FullStringTableBlock;
+
+typedef struct FullStringTable {
+    struct FullStringTable          *next;
+    FullStringTableBlock            *Head;
+    FullStringTableBlock            *Tail;
+    WResLangType                    lang;       // for Win32
+} FullStringTable;
+
+typedef struct StringItem {
+    uint_16         ItemID;
+    char            *String;
+} StringItem;
+
+extern void             SemWINWriteStringTable( FullStringTable *, WResID *type_id );
+extern void             SemWINAddStrToStringTable( FullStringTable *currtable,
+                            uint_16 stringid, char *string );
+extern void             SemWINMergeStrTable( FullStringTable *, ResMemFlags newflags );
+extern void             SemWINMergeErrTable( FullStringTable *, ResMemFlags newflags );
+extern FullStringTable  *SemWINNewStringTable( void );
+
+extern void             SemOS2WriteStringTable( FullStringTable *, WResID *type_id );
+extern void             SemOS2AddStrToStringTable( FullStringTable *currtable,
+                            uint_16 stringid, char *string );
+extern void             SemOS2MergeStrTable( FullStringTable *, ResMemFlags newflags,
+                            uint_32 codepage );
+extern void             SemOS2MergeMsgTable( FullStringTable *, ResMemFlags newflags );
+extern FullStringTable  *SemOS2NewStringTable( void );
+
+#endif

@@ -1,0 +1,125 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2026      The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
+*               DESCRIBE IT HERE!
+*
+****************************************************************************/
+
+
+#include <stdio.h>
+#include "wresall.h"
+#include "bincpy.h"
+#include "param.h"
+#include "m2wres.h"
+#include "wresdefn.h"
+#include "rcrtns.h"
+#include "wres.h"
+
+
+static WResID *ConvertNameOrOrdToID( ResNameOrOrdinal *name )
+/***********************************************************/
+{
+    if (name->ord.fFlag == 0xff) {
+        return( WResIDFromNum( name->ord.wOrdinalID ) );
+    } else {
+        return( WResIDFromStr( name->name ) );
+    }
+}
+
+static bool ConvertMResources( FILE *in_fp, FILE *out_fp, WResDir outdir )
+/************************************************************************/
+{
+    MResResourceHeader  *msheader;
+    WResID              *res_id;
+    WResID              *type_id;
+    bool                error;
+    bool                lastheader; /* true if lastheader has been read */
+    uint_32             offset;
+    bool                duplicate;
+    bool                iswin32;
+
+    iswin32 = false;
+    msheader = MResReadResourceHeader( in_fp, iswin32 );
+    /* assume that any error reading here means end of file */
+    lastheader = ( msheader == NULL );
+    error = false;
+    while( !error && !lastheader ) {
+        res_id = ConvertNameOrOrdToID( msheader->Name );
+        type_id = ConvertNameOrOrdToID( msheader->Type );
+        offset = RESTELL( out_fp );
+
+        /* copy the resource if it isn't a name table or if the user */
+        /* requested that name tables be copied */
+        if( type_id->IsName || type_id->ID.Num != RESOURCE2INT( RT_NAMETABLE ) ||
+                        CmdLineParms.KeepNameTable ) {
+            error = WResAddResource( type_id, res_id, msheader->MemoryFlags, offset,
+                        msheader->Size, outdir, NULL, &duplicate );
+            if( duplicate ) {
+                /* print message and continue */
+                puts( "Error: duplicate entry" );
+                error = false;
+            } else {
+                error = BinaryCopy( in_fp, out_fp, msheader->Size );
+            }
+        } else {
+            RESSEEK( in_fp, msheader->Size, SEEK_CUR );
+        }
+
+        WResIDFree( res_id );
+        WResIDFree( type_id );
+        MResFreeResourceHeader( msheader );
+
+        msheader = MResReadResourceHeader( in_fp, iswin32 );
+        /* assume that any error reading here means end of file */
+        lastheader = ( msheader == NULL );
+    }
+
+    return( error );
+} /* ConvertMResources */
+
+bool ConvertMResToWRes( FILE *in_fp, FILE *out_fp )
+/*************************************************/
+{
+    WResDir                 outdir;
+    bool                    error;
+
+    outdir = WResInitDir();
+    if( outdir == NULL ) {
+        return( true );
+    }
+
+    error = ConvertMResources( in_fp, out_fp, outdir );
+
+    if( !error ) {
+        error = WResWriteDir( out_fp, outdir );
+    }
+
+    WResFreeDir( outdir );
+
+    return( error );
+} /* ConvertMResToWres */

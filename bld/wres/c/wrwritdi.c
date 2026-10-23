@@ -1,0 +1,126 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2026      The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
+*               DESCRIBE IT HERE!
+*
+****************************************************************************/
+
+
+#include <string.h>
+#include "layer0.h"
+#include "layer1.h"
+#include "wres.h"
+#include "reserr.h"
+#include "wresrtns.h"
+
+static bool writeLangList( FILE *fp, WResLangNode *langnode )
+{
+    bool        error;
+
+    error = false;
+    for( ; langnode != NULL && !error; langnode = langnode->Next ) {
+        error = WResWriteLangRecord( &(langnode->Info), fp );
+    }
+    return( error );
+}
+
+static bool writeResList( FILE *fp, WResResNode *resnode )
+{
+    bool        error;
+
+    error = false;
+    for( ; resnode != NULL && !error; resnode = resnode->Next ) {
+        error = WResWriteResRecord( &(resnode->Info), fp );
+        if( !error ) {
+            error = writeLangList( fp, resnode->Head );
+        }
+    }
+
+    return( error );
+}
+
+static bool writeTypeList( FILE *fp, WResTypeNode *typenode )
+{
+    bool        error;
+
+    error = false;
+    for( ; typenode != NULL && !error; typenode = typenode->Next ) {
+        error = WResWriteTypeRecord( &(typenode->Info), fp );
+        if( !error ) {
+            error = writeResList( fp, typenode->Head );
+        }
+    }
+
+    return( error );
+}
+
+bool WResWriteDir( FILE *fp, WResDir dir )
+/****************************************/
+{
+    WResHeader      header;
+    WResExtHeader   extheader;
+    bool            error;
+    long            diroffset;
+
+    /* get the offset of the start of the directory */
+    diroffset = WRESTELL( fp );
+    if( diroffset == -1L ) {
+        error = WRES_ERROR( WRS_TELL_FAILED );
+    } else {
+        error = writeTypeList( fp, dir->Head );
+    }
+    if( !error ) {
+        if( WRESSEEK( fp, 0L, SEEK_SET ) ) {
+            error = WRES_ERROR( WRS_SEEK_FAILED );
+        }
+    }
+    /* write out the file header */
+    if( !error ) {
+        header.Magic[0] = WRESMAGIC0;
+        header.Magic[1] = WRESMAGIC1;
+        header.DirOffset = diroffset;
+        header.NumResources = dir->NumResources;
+        header.NumTypes = dir->NumTypes;
+        header.WResVer = WRESVERSION;
+        error = WResWriteHeader( &header, fp );
+    }
+    if( !error ) {
+        memset( &extheader, 0, sizeof( WResExtHeader ) );
+        extheader.TargetOS = dir->TargetOS;
+        error = WResWriteExtHeader( &extheader, fp );
+    }
+
+    /* leave the handle at the start of the file */
+    if( !error ) {
+        if( WRESSEEK( fp, 0L, SEEK_SET ) ) {
+            error = WRES_ERROR( WRS_SEEK_FAILED );
+        }
+    }
+
+    return( error );
+}

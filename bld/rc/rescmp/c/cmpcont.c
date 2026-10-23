@@ -1,0 +1,115 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2026      The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
+*               DESCRIBE IT HERE!
+*
+****************************************************************************/
+
+
+#include <stdio.h>
+#include "wresall.h"
+#include "global.h"
+#include "cmpres.h"
+#include "cmpcont.h"
+
+
+static int CompareHeaders( WResHeader *header1, WResHeader *header2 )
+/*******************************************************************/
+{
+    int             retcode;    /* 0: same  1: different */
+
+    retcode = 0;
+    if( header1->NumResources != header2->NumResources ) {
+        if( !(CmdLineParms.Quiet || CmdLineParms.NoCounts) ) {
+            puts( "The number of resources differ." );
+        }
+        retcode = 1;
+    }
+
+    if( header1->NumTypes != header2->NumTypes) {
+        if( !(CmdLineParms.Quiet || CmdLineParms.NoCounts) ) {
+            puts( "The number of types differ." );
+        }
+        retcode = 1;
+    }
+
+    return( retcode );
+}
+
+int CompareContents( FILE *fp1, FILE *fp2 )
+/*****************************************/
+{
+    int             retcode;        /* -1: error  0: same  1: different */
+    int             oldretcode;
+    bool            dup_discarded;
+    WResHeader      header1;
+    WResHeader      header2;
+    WResDir         dir1;
+    WResDir         dir2;
+
+    if( WResReadHeader( &header1, fp1 ) ) {
+        return( -1 );
+    } else if( WResReadHeader( &header2, fp2 ) ) {
+        return( -1 );
+    }
+    retcode = CompareHeaders( &header1, &header2 );
+    if( (retcode == 1 && !CmdLineParms.CheckAll) ) {
+        return( retcode );
+    }
+
+    oldretcode = retcode;
+
+    if( WResReadDir( fp1, &dir1, &dup_discarded ) )
+        return( -1 );
+    if( dup_discarded ) {
+        WResFreeDir( dir1 );
+        return( -1 );
+    }
+    if( WResReadDir( fp2, &dir2, &dup_discarded ) ) {
+        WResFreeDir( dir1 );
+        return( -1 );
+    }
+    if( dup_discarded ) {
+        WResFreeDir( dir1 );
+        WResFreeDir( dir2 );
+        return( -1 );
+    }
+
+    retcode = CompareResources( fp1, dir1, fp2, dir2 );
+
+    WResFreeDir( dir1 );
+    WResFreeDir( dir2 );
+
+    if( retcode == -1 ) {
+        return( -1 );
+    } else if( retcode == 1 || oldretcode == 1 ) {
+        return( 1 );
+    } else {
+        return( 0 );
+    }
+}

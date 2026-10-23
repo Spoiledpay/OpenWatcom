@@ -1,0 +1,484 @@
+/****************************************************************************
+*
+*                            Open Watcom Project
+*
+* Copyright (c) 2002-2026 The Open Watcom Contributors. All Rights Reserved.
+*    Portions Copyright (c) 1983-2002 Sybase, Inc. All Rights Reserved.
+*
+*  ========================================================================
+*
+*    This file contains Original Code and/or Modifications of Original
+*    Code as defined in and that are subject to the Sybase Open Watcom
+*    Public License version 1.0 (the 'License'). You may not use this file
+*    except in compliance with the License. BY USING THIS FILE YOU AGREE TO
+*    ALL TERMS AND CONDITIONS OF THE LICENSE. A copy of the License is
+*    provided with the Original Code and Modifications, and is also
+*    available at www.sybase.com/developer/opensource.
+*
+*    The Original Code and all software distributed under the License are
+*    distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+*    EXPRESS OR IMPLIED, AND SYBASE AND ALL CONTRIBUTORS HEREBY DISCLAIM
+*    ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF
+*    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR
+*    NON-INFRINGEMENT. Please see the License for the specific language
+*    governing rights and limitations under the License.
+*
+*  ========================================================================
+*
+* Description:  VI editor bind utility.
+*
+****************************************************************************/
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
+#include "wio.h"
+#include "watcom.h"
+#include "bool.h"
+#include "banner.h"
+#include "bnddata.h"
+#include "roundmac.h"
+#include "pathgrp2.h"
+#include "myio.h"
+
+#include "clibext.h"
+
+
+#define SKIP_SPACES(s)  while( isspace( *s ) ) s++
+
+#define MAX_LINE_LEN    1024
+#define COPY_SIZE       (0x8000 - 512)  /* QNX read/write size limitation */
+#define MAX_DATA_FILES  255
+#define MAX_BIND_DATA   65000
+#define FILE_BUFF_SIZE  COPY_SIZE
+
+#define SEEK_POSBACK(p) (-(long)(p))
+
+static int      files_count;
+static char     *filenames[MAX_DATA_FILES];
+static bool     sflag = false;
+static bool     qflag = false;
+static char     _bf[] = "edbind.dat";
+static char     *bindfile = _bf;
+
+static void Banner( void )
+{
+    if( !qflag ) {
+        puts(
+            banner1t( "Editor Bind Utility" ) "\n"
+            banner1v( _EDBIND_VERSION_ ) "\n"
+            banner2 "\n"
+            banner2a( 1984 ) "\n"
+            banner3 "\n"
+            banner3a "\n"
+        );
+    }
+}
+
+/*
+ * Abort - made a boo-boo
+ */
+static void Abort( const char *str, ... )
+{
+    va_list     args;
+
+    va_start( args, str );
+    vprintf( str, args );
+    va_end( args );
+    printf( "\n" );
+    exit( 1 );
+
+} /* Abort */
+
+/*
+ * MyAlloc - allocate memory, failing if cannot
+ */
+static void *MyAlloc( size_t size )
+{
+    void        *tmp;
+
+    tmp = malloc( size );
+    if( tmp == NULL ) {
+        Abort( "Out of Memory!" );
+    }
+    return( tmp );
+
+} /* MyAlloc */
+
+
+/*
+ * MyPrintf - do a printf
+ */
+static void MyPrintf( const char *str, ... )
+{
+    va_list     args;
+
+    if( !qflag ) {
+        va_start( args, str );
+        vprintf( str, args );
+        va_end( args );
+    }
+
+} /* MyPrintf */
+
+static int copy_file( FILE *src, FILE *dst, unsigned long tocopy )
+{
+    char            *copy;
+    size_t          size;
+    int             rc;
+
+    rc = 0;
+    copy = MyAlloc( COPY_SIZE );
+    size = COPY_SIZE;
+    while( tocopy > 0 ) {
+        if( size > tocopy )
+            size = (size_t)tocopy;
+        if( fread( copy, 1, size, src ) != size ) {
+            printf( "Read error" );
+            rc = 1;
+            break;
+        }
+        if( fwrite( copy, 1, size, dst ) != size ) {
+            printf( "Write error" );
+            rc = 1;
+            break;
+        }
+        tocopy -= size;
+    }
+    free( copy );
+    return( rc );
+}
+
+/*
+ * AddDataToEXE - tack data to end of an EXE
+ */
+static void AddDataToEXE( const char *exe, const char *outexe, char *data, size_t data_len, struct stat *fs )
+{
+    FILE            *fp;
+    FILE            *newfp;
+    char            buff[TRAILER_SIZE];
+    int             rc;
+    unsigned long   tocopy;
+
+    tocopy = fs->st_size;
+    /*
+     * get files
+     */
+    fp = fopen( exe, "rb" );
+    if( fp == NULL ) {
+        Abort( "Fatal error opening \"%s\"", exe );
+    }
+    newfp = tmpfile();
+    if( newfp == NULL ) {
+        fclose( fp );
+        Abort( "Fatal error opening temporary file" );
+    }
+
+    /*
+     * get trailer
+     */
+    if( fseek( fp, SEEK_POSBACK( TRAILER_SIZE ), SEEK_END ) ) {
+        fclose( fp );
+        Abort( "Initial seek error on \"%s\"", exe );
+    }
+    if( fread( buff, 1, TRAILER_SIZE, fp ) != TRAILER_SIZE ) {
+        fclose( fp );
+        Abort( "Read error on \"%s\"", exe );
+    }
+
+    /*
+     * if trailer is one of ours, then set back to overwrite data;
+     * else just set to write at end of file
+     */
+    if( memcmp( buff, MAGIC_COOKIE, MAGIC_COOKIE_SIZE ) ) {
+        if( sflag ) {
+            fclose( fp );
+            Abort( "\"%s\" does not contain configuration data!", exe );
+        }
+    } else {
+        tocopy -= TRAILER_SIZE + GET_MAGIC_SIZE( buff );
+    }
+    if( fseek( fp, 0, SEEK_SET ) ) {
+        fclose( fp );
+        Abort( "Seek error on \"%s\"", exe );
+    }
+
+    /*
+     * copy crap
+     */
+    rc = copy_file( fp, newfp, tocopy );
+    /*
+     * close input executable, now not necessary
+     */
+    fclose( fp );
+
+    if( rc ) {
+        fclose( newfp );
+        exit( 1 );
+    }
+
+    /*
+     * write out data and new trailer
+     */
+    if( !sflag ) {
+        if( fwrite( data, 1, data_len, newfp ) != data_len ) {
+            Abort( "write 1 error on \"%s\"", exe );
+        }
+        memcpy( buff, MAGIC_COOKIE, MAGIC_COOKIE_SIZE );
+        SET_MAGIC_SIZE( buff, data_len );
+        if( fwrite( buff, 1, TRAILER_SIZE, newfp ) != TRAILER_SIZE ) {
+            Abort( "write 2 error on \"%s\"", exe );
+        }
+    }
+    /*
+     * create output executable
+     */
+    fp = fopen( outexe, "wb" );
+    if( fp == NULL ) {
+        Abort( "Fatal error opening \"%s\"", outexe );
+    }
+    tocopy = ftell( newfp );
+    rewind( newfp );
+    copy_file( newfp, fp, tocopy );
+    fclose( fp );
+    fclose( newfp );
+#ifdef __UNIX__
+    chmod( outexe, fs->st_mode );
+#endif
+
+} /* AddDataToEXE */
+
+/*
+ * GetFromEnv - get file name from environment
+ */
+static void GetFromEnv( const char *what, char *path )
+{
+    _searchenv( what, "EDPATH", path );
+    if( path[0] != '\0' ) {
+        return;
+    }
+    _searchenv( what, "PATH", path );
+
+} /* GetFromEnv */
+
+/*
+ * GetFromEnvAndOpen - search env and fopen a file
+ */
+static FILE *GetFromEnvAndOpen( const char *inpath )
+{
+    char tmppath[_MAX_PATH];
+
+    GetFromEnv( inpath, tmppath );
+    if( tmppath[0] != '\0' ) {
+        MyPrintf( " %s...", tmppath );
+        return( fopen( tmppath, "r" ) );
+    }
+    return( NULL );
+
+} /* GetFromEnvAndOpen */
+
+/*
+ * Usage - dump the usage message
+ */
+#if defined( __WATCOMC__ )
+    #pragma aux Usage __aborts
+#endif
+static void Usage( const char *msg )
+{
+    if( msg != NULL ) {
+        printf( "%s\n", msg );
+    }
+    printf( "Usage: edbind [-?sq] [-d<datfile>] <exename> [<output exename>]\n" );
+    if( msg == NULL ) {
+        printf( "\t<exename>\t     executable to add editor data to\n" );
+        printf( "\t<output exename>     optional output file (default is <exename>)\n" );
+        printf( "\tOptions -?:\t     display this message\n" );
+        printf( "\t\t-s:\t     strip editor data from executable\n" );
+        printf( "\t\t-q:\t     run quietly\n" );
+        printf( "\t\t-d<datfile>: specify data file other than edbind.dat\n" );
+    }
+    exit( 1 );
+
+} /* Usage */
+
+int main( int argc, char *argv[] )
+{
+    char            *ptr;
+    int             i;
+    int             j;
+    size_t          len;
+    size_t          arg_len;
+    FILE            *fp;
+    struct stat     fs;
+    pgroup2         pg;
+    char            path[_MAX_PATH];
+    char            outpath[_MAX_PATH];
+
+    for( i = argc - 1; i > 0; --i ) {
+        if( argv[i][0] == '/' || argv[i][0] == '-' ) {
+            arg_len = strlen( argv[i] );
+            for( len = 1; len < arg_len; len++ ) {
+                switch( argv[i][len] ) {
+                case 's': sflag = true;
+                    break;
+                case 'q': qflag = true;
+                    break;
+                case 'd':
+                    bindfile = &argv[i][len + 1];
+                    len = arg_len;
+                    break;
+                case '?':
+                    Banner();
+                    Usage( NULL );
+                default:
+                    Banner();
+                    Usage( "Invalid option" );
+                }
+            }
+            for( j = i; j < argc; j++ ) {
+                argv[j]= argv[j + 1];
+            }
+            argc--;
+        }
+    }
+    Banner();
+
+    /*
+     * now, check for null file name
+     */
+    if( argc < 2 ) {
+        Usage( "No executable to bind" );
+    }
+    _splitpath2( argv[1], pg.buffer, &pg.drive, &pg.dir, &pg.fname, &pg.ext );
+    if( pg.ext[0] == '\0' )
+        pg.ext = "exe";
+    _makepath( path, pg.drive, pg.dir, pg.fname, pg.ext );
+    if( stat( path, &fs ) == -1 ) {
+        Abort( "Could not find executable \"%s\"", path );
+    }
+    if( argc > 2 ) {
+        _splitpath2( argv[2], pg.buffer, &pg.drive, &pg.dir, &pg.fname, &pg.ext );
+        if( pg.ext[0] == '\0' )
+            pg.ext = "exe";
+        _makepath( outpath, pg.drive, pg.dir, pg.fname, pg.ext );
+    } else {
+        strcpy( outpath, path );
+    }
+
+    if( !sflag ) {
+        char        *data_ptr;
+        char        *data_buff;
+        char        *file_buff;
+        char        *line_buff;
+        char        *p;
+        char        *files_data_len_ptr;
+        size_t      files_data_len;
+        TYPE_BIND   *files_data_offs;
+        TYPE_BIND   *files_data_lines;
+        TYPE_BIND   lines;
+        char        tmppath[_MAX_PATH];
+        /*
+         * read in all data files
+         */
+        MyPrintf( "Getting data files from" );
+        fp = GetFromEnvAndOpen( bindfile );
+        MyPrintf( "\n" );
+        if( fp == NULL ) {
+            Abort( "Could not open %s", bindfile );
+        }
+
+        data_buff = MyAlloc( MAX_BIND_DATA );
+        line_buff = MyAlloc( MAX_LINE_LEN );
+        while( (ptr = myfgets( line_buff, MAX_LINE_LEN, fp )) != NULL ) {
+            SKIP_SPACES( ptr );
+            if( ptr[0] == '\0' || ptr[0] == '#' ) {
+                continue;
+            }
+            filenames[files_count] = MyAlloc( strlen( ptr ) + 1 );
+            strcpy( filenames[files_count], ptr );
+            files_count++;
+            if( files_count >= MAX_DATA_FILES ) {
+                Abort( "Too many files to bind!" );
+            }
+        }
+        fclose( fp );
+
+        data_ptr = data_buff;
+
+        SET_SIZE( data_ptr, files_count );
+        data_ptr += SIZE_BIND;
+        files_data_len_ptr = data_ptr;
+        data_ptr += SIZE_BIND;
+        p = data_ptr;
+        for( i = 0; i < files_count; i++ ) {
+            _splitpath2( filenames[i], pg.buffer, NULL, NULL, &pg.fname, &pg.ext );
+            _makepath( tmppath, NULL, NULL, pg.fname, pg.ext );
+            len = strlen( tmppath ) + 1;
+            memcpy( data_ptr, tmppath, len );
+            data_ptr += len;
+        }
+        *data_ptr++ = '\0';                /* trailing zero */
+        /*
+         * align files names data to SIZE_BIND boundary
+         */
+        files_data_len = data_ptr - p;
+        len = __ROUND_UP_SIZE( files_data_len, SIZE_BIND );
+        while( files_data_len < len ) {
+            *data_ptr++ = '\0';            /* alignment by zero */
+            files_data_len++;
+        }
+        SET_SIZE( files_data_len_ptr, files_data_len ); /* size of token list */
+        files_data_offs = (TYPE_BIND *)data_ptr;
+        data_ptr += files_count * SIZE_BIND;
+        files_data_lines = (TYPE_BIND *)data_ptr;
+        data_ptr += files_count * SIZE_BIND;
+
+        file_buff = MyAlloc( FILE_BUFF_SIZE );
+        for( i = 0; i < files_count; i++ ) {
+            MyPrintf( "Loading" );
+            fp = GetFromEnvAndOpen( filenames[i] );
+            if( fp == NULL ) {
+                Abort( "\nLoad failed!" );
+            }
+            setvbuf( fp, file_buff, _IOFBF, FILE_BUFF_SIZE );
+            files_data_offs[i] = data_ptr - data_buff;
+            lines = 0;
+            p = data_ptr;
+            while( (ptr = myfgets( line_buff, MAX_LINE_LEN, fp )) != NULL ) {
+                SKIP_SPACES( ptr );
+                if( ptr[0] == '\0' || ptr[0] == '#' ) {
+                    continue;
+                }
+                len = strlen( ptr );
+                if( len > 255 )
+                    len = 255;
+                *data_ptr++ = (char)len;
+                memcpy( data_ptr, ptr, len );
+                data_ptr += len;
+                lines++;
+            }
+            fclose( fp );
+            files_data_lines[i] = lines;
+            MyPrintf( "Added %d lines (%d bytes)\n", (int)lines, (int)( data_ptr - p ) );
+        }
+        free( file_buff );
+        for( i = 0; i < files_count; i++ ) {
+            free( filenames[i] );
+        }
+        free( line_buff );
+
+        AddDataToEXE( path, outpath, data_buff, data_ptr - data_buff, &fs );
+
+        MyPrintf( "Added %d bytes to \"%s\"\n", (int)( data_ptr - data_buff ), path );
+
+        free( data_buff );
+    } else {
+        MyPrintf( "\"%s\" has been stripped of configuration information\n", path );
+    }
+
+    return( 0 );
+
+} /* main */

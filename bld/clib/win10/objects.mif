@@ -1,0 +1,15 @@
+#                       d16 d32 dpm nt  nta ntp ntm nvc ncl nvl nll o16 o32 q16 q32 w16 w32 l32 lpc lmp rdu rdk
+#==============================================================================================================
+
+!include ../../../../objlist.mif
+
+#                       d16 d32 dpm nt  nta ntp ntm nvc ncl nvl nll o16 o32 q16 q32 w16 w32 l32 lpc lmp rdu rdk
+#==============================================================================================================
+!inject win1stub.obj                                                                w16
+
+
+objsuffix=files
+!include ../../../../objlist.mif
+objsuffix=
+
+win1stub_postopts =-zld

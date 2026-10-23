@@ -1,0 +1,33 @@
+proj_name = ssl
+
+ssl_autodepends = .AUTODEPEND
+
+ssl_trmem = 1
+
+!include cproj.mif
+!include defrule.mif
+!include deftarg.mif
+
+!include $(cpp_dir)/client.mif
+
+#
+# cflags
+#
+.c: ../c;$(cli_cpp_c_dirs);$(watcom_dir)/c;$(trmem_dir)
+
+inc_dirs = -I"../h" $(cli_cpp_inc_dirs)
+
+# explicit rules
+#################
+
+#
+# EXE
+#
+exetarg_objs = &
+    ssl.obj         &
+    ssldecl.obj     &
+    sslrule.obj     &
+    sslsym.obj      &
+    sslgen.obj      &
+    $(cli_cpp_objs) ppenv.obj ppmem.obj $(trmem_objs)
+!include exetarg.mif

@@ -1,0 +1,21 @@
+!ifdef export_only
+mlib_subdir_suffix_dynamic = .wdl
+!else
+mlib_subdir_suffix_dynamic = .dll
+!endif
+mlib_subdir_suffix_286_dynamic = $(mlib_subdir_suffix_dynamic)
+mlib_subdir_suffix_386_dynamic = $(mlib_subdir_suffix_dynamic)
+
+pfx__ =../../..
+__sfx =$(system).$(processor)/$(libsubdir)$(mlib_subdir_suffix_$(mlib_$(processor))_$(linkage))/$(libname).lib
+
+!ifeq linkage static
+libs =
+!else
+libs = $+ &
+    $(pfx__)/alias/library/$(__sfx) &
+    $-
+!endif
+
+pfx__ =
+__sfx =

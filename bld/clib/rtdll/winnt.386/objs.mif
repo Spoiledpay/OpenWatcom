@@ -1,0 +1,46 @@
+__cifx__ =$(system).$(processor)/$(libsubdir)
+
+!ifdef profile
+dll_libs = $+ &
+    $(clib_dir)/library/$(system).$(processor)/$(model)_rp/clib3$(dllname_$(convention)).lib &
+    $-
+!else
+dll_libs = $+ &
+    $(clib_dir)/library/$(__cifx__)/clib3$(dllname_$(convention)).lib &
+    $-
+!endif
+
+# link math library into the CRT DLL
+# math functions (sqrt_, sin_, cos_, exp_, log_, etc.) must reside in
+# the CRT DLL so that programs compiled with __SW_BR (DLL runtime)
+# can resolve __declspec(dllimport) references
+dll_libs += $+ &
+    $(mathlib_dir)/library/$(system).$(processor)/$(libsubdir)/math3$(dllname_$(convention)).lib &
+    $-
+
+dll_def = $+ &
+    $(clib_dir)/library/$(__cifx__)/export.gdf &
+    $(mathlib_dir)/library/$(system).$(processor)/$(libsubdir)/math_export.gdf &
+    $(clib_dir)/intel/export.def &
+    $(clib_dir)/startup/export.def &
+    $(clib_dir)/startup/$(convention).def &
+    $(clib_dir)/startup/library/$(system).$(processor)/$(convention).def &
+    $-
+
+!ifdef profile
+dll_objs = $+ &
+    $(clib_dir)/startup/library/$(__cifx__)/clibdwnt.obj &
+    $(clib_dir)/startup/library/$(__cifx__)/segdefns.obj &
+    $(clib_dir)/intel/library/$(__cifx__)/p5prof2.obj &
+    $(clib_dir)/intel/library/$(__cifx__)/prfalloc.obj &
+    $(clib_dir)/intel/library/$(__cifx__)/profilog.obj &
+    $-
+!else
+dll_objs = $+ &
+    $(clib_dir)/startup/library/$(__cifx__)/clibdwnt.obj &
+    $-
+!endif
+
+!include ../../static.mif
+
+__cifx__ =

@@ -1,0 +1,10 @@
+@echo off
+set OWROOT=C:\Projetos\open-watcom-v2-master
+set WATCOM=%OWROOT%\rel
+set PATH=%WATCOM%\binnt;%PATH%
+"%WATCOM%\binnt\wcc.exe" 2>&1
+echo RC_WCC=%ERRORLEVEL%
+"%WATCOM%\binnt\wpp.exe" 2>&1
+echo RC_WPP=%ERRORLEVEL%
+"%WATCOM%\binnt\wdis.exe" 2>&1
+echo RC_WDIS=%ERRORLEVEL%
