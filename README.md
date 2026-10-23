@@ -1,13 +1,13 @@
-![Open Watcom LabsObjects](OpenWatcom.png)
+<img src="OpenWatcom.png" alt="Open Watcom V2 — LabsObjects Edition" width="240">
 
-# Open Watcom V2 — LabsObjects Edition (Version 2.0.5)
+# Open Watcom V2 — LabsObjects Edition (Version 2.0.6)
 
 > Sabor Windows x64 da Open Watcom V2, mantido pela **LabsObjects**:
 > toolchain C/C++/FORTRAN 32-bit completa e auto-hospedada, construída
 > com GCC/MinGW bootstrap + auto-hospedagem (`builder boot`/`rel`).
 > Proposta: distribuição pronta para uso em Windows 10/11 x64, sem
 > targets 16-bit/DOS/OS/2, com validação por suítes de regressão.
-> Pipeline completa documentada em [`marco.md`](marco.md) (FASEs 0–29);
+> Pipeline completa documentada em [`marco.md`](marco.md) (FASEs 0–44);
 > regras de contribuição em [`skill.md`](skill.md).
 
 ## Estado desta edição
@@ -151,8 +151,8 @@ espaços). A raiz é `OWROOT`. Separador `\` (Windows). Layout:
         completa; rel\lib386\nt = runtimes; rel\h = headers.
 
     Raiz
-      - OpenWatcom.png — logo desta edição.
-      - marco.md — pipeline FASEs 0–29 (o que funciona + pendências).
+      - OpenWatcom.png — logo desta edição (582×675, 353 KB, otimizado).
+      - marco.md — pipeline FASEs 0–44 (o que funciona + pendências).
       - skill.md — regras de engenharia/entrega.
       - license.txt — OWPL 1.0 + adendo LabsObjects.
       - setvars_ow.bat / setvars_gcc.bat / build_full.bat — ambientes.
