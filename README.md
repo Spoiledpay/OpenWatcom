@@ -1,4 +1,6 @@
-<img src="OpenWatcom.png" alt="Open Watcom V2 — LabsObjects Edition" width="240">
+<p align="center">
+  <img src="OpenWatcom.png" alt="Open Watcom V2 — LabsObjects Edition" width="240">
+</p>
 
 # Open Watcom V2 — LabsObjects Edition (Version 2.0.6)
 
