@@ -514,6 +514,11 @@ common_cflags_wng += &
 !   endif
 !  endif
 ! endif
+!ifdef __GCC_TOOLS__
+# MinGW GCC predefines __SEH__ for its own SEH support; the OW cc uses
+# __SEH__ as its internal 32-bit feature macro. Undefine it for GCC builds.
+common_cflags_wng += -U__SEH__
+!endif
 common_cflags = $(common_cflags_wng) $(common_sanitizer_flags) -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=$(bld_fortify)
 
 common_ldflags_rel =

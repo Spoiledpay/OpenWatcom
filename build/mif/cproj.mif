@@ -785,6 +785,14 @@ inc_dirs_all    = -I"$(trmem_dir)" -I"$(watcom_dir)/h"
 inc_dirs_all    = -I"$(watcom_dir)/h"
 !endif
 
+!ifdef __WATCOM_TOOLS__
+! ifdef __NT__
+# WATCOM NT target builds use -x (ignore INCLUDE); add the installed
+# headers explicitly so standard headers from the target rel are found.
+inc_dirs_all    += -I"$(%WATCOM)/h" -I"$(%WATCOM)/h/nt"
+! endif
+!endif
+
 !ifdef inc_dirs_lang_$(host_os)
 inc_dirs_lang   = $(inc_dirs_lang_$(host_os))
 !else

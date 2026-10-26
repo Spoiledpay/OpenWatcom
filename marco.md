@@ -2190,6 +2190,55 @@ falha, para o erro real aparecer no log do step.
 
 ---
 
+## FASE 46: Release 2.0.7 — recuperação do bootstrap e self-host WATCOM ✅ (26/10/2026)
+
+### 46.1 Recuperação do bootstrap
+
+O `clean.bat` chama `builder -i bootclean`, que apaga o toolset de
+`build/binbuild` (`bwcc386`, `bwpp386`, `bwlink`, `bwlib`, `optencod`,
+`awk`, `wcpp`, ...). O script de release inicial fez backup apenas de
+`builder.exe`, `wmake.exe` e `version.bin`; o toolset foi perdido.
+
+Recuperação:
+- `setvars_gcc.bat` + fase 1–3 do `build_full` (GCC/MinGW) reconstruíram o
+  bootstrap.
+- `local.mif`: MinGW predefine `__SEH__`; o `cc` usa a mesma macro para SEH
+  32-bit e o i86 quebrava em `FLD_next`/`TRY_BLOCK_SIZE`. Fix: `-U__SEH__`
+  para `__GCC_TOOLS__`.
+- `clibext.c`: `setenv`/`unsetenv` passaram a valer também para
+  `__GNUC__ && __NT__` (o `ide2make` linkava sem `setenv` no MinGW).
+- `build/tools_backup.bat`: snapshot/restore de `build/binbuild`,
+  `rel/binnt`, `distrib/ow/bin` e `version.bin`; usado antes do clean.
+
+### 46.2 Self-host 2.0.7
+
+- `build/bumpver.bat` 1×: `version.bin` 6→7 (`OWBLDVER_PATCH=7`).
+- Clean seguro: `builder -i clean` com `OWTOOLS=WATCOM`, `WATCOM=rel`,
+  `OWTOOLSVER=1300` e `cmnvars.bat` (sem `bootclean`).
+- `cproj.mif`: WATCOM NT usa `-x` (ignora `INCLUDE`); adicionados
+  `-I"$(%WATCOM)/h"` e `-I"$(%WATCOM)/h/nt"`.
+- `LIB` (não só `LIBPATH`) definido em `win_complete`, `distrib_build`,
+  `setupgui_*` e `test_examples`; resolve `emu387.lib`/`flib7.lib`.
+- `win_complete` concluiu `wcc/wpp` 32+16, `wlink`, `wmake`, `wrc`;
+  `commonui` + `uninstal` e `setupgui_deps` + `setupgui` completaram
+  `csetup.exe`/`f77setup.exe` e `rel/uninstal.exe`.
+
+### 46.3 Validação
+
+- `wcc386/wpp386/wcc/wpp/wlink/wmake/wrc` = **2.0.7**; `wfc/wfl` = 2.0.5
+  (unificam na próxima pipeline de Fortran).
+- `rel/binnt`: 83 `.exe`, 0 zerados; `rel/lib386/nt`: 137 `.lib`, 0 zerados.
+- `build/test_examples.bat`: **PASS=4 FAIL=0** (C, C++, math `-fpc`,
+  Fortran via `wfl386`).
+- `build/distrib_build.bat`: `DISTRIB_RC=0`; instaladores
+  `c` 18.465.990 + `f77` 14.255.003 bytes.
+- Portátil `open-watcom-2.0.7-win32-portable.zip` 27.602.323 bytes +
+  `SHA256SUMS.txt`.
+- CodeQL #4 (`6826c849`): `Build DB` verde; 4 queries de análise expiraram
+  em `--timeout=300` (não afeta o compilador/release).
+
+---
+
 ## CONTINUAR DEPOIS — estado e pendências (fechamento 10/10/2026)
 
 ### Estado final do dia (tudo verde)

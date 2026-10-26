@@ -20,6 +20,7 @@ call "%OWROOT%\cmnvars.bat"
 set WATCOM=%OWROOT%\rel
 set INCLUDE=%WATCOM%\h;%WATCOM%\h\nt
 set LIBPATH=%WATCOM%\lib386\nt;%WATCOM%\lib386
+set LIB=%WATCOM%\lib386\nt;%WATCOM%\lib386
 set WLINK_LNK=%OWROOT%\build\bwlink.lnk
 echo === START %TIME% ===
 for %%P in (watcom hdr w32api clib mathlib cpplib rtdll wres orl owl dwarf cfloat wasm nwlib wl wmake wtouch cg cc plusplus rc wcl ndisasm exedump dmpobj wstrip mstools wclass wcl idebatch uninstal) do (

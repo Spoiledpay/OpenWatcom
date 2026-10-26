@@ -35,6 +35,9 @@ suítes `ctest` 4/5 e `plustest` 23 PASS (deltas pré-existentes, FASE 29).
 | FIX-013 | `OWNEWWGML=1` nos 15 `.bat` (wgml nativo 64-bit; sem DOSBOX p/ `.gh` de help e docs) | `build/*.bat` | FASE 21.3, 24, 26.2 |
 | FIX-014 | `.gitignore` += `*.tds` (ruído de build; `/build/*.bat` NÃO ignorado de propósito) | `.gitignore` | FASE 20.2, 26.2 |
 | FIX-070 | CI CodeQL (Linux/GCC): guards `_MSC_VER || __GNUC__` restritos a NT (`__GNUC__ && __NT__`) em `clibext.c/h` — `windows.h` não é mais incluído no Linux; `ci/codeql.sh` imprime `bootx.log` em falha | `bld/watcom/c/clibext.c`, `bld/watcom/h/clibext.h`, `ci/codeql.sh` | FASE 45 |
+| FIX-071 | Bootstrap GCC/MinGW: `local.mif` adiciona `-U__SEH__` (MinGW predefine `__SEH__`; o `cc` i86 compilava SEH 32-bit e quebrava em `FLD_next`/`TRY_BLOCK_SIZE`); `clibext.c` implementa `setenv`/`unsetenv` para `__GNUC__ && __NT__` | `build/mif/local.mif`, `bld/watcom/c/clibext.c` | FASE 46 |
+| FIX-072 | Self-host WATCOM: `cproj.mif` adiciona `-I rel/h`/`rel/h/nt` no NT (a opção `-x` ignora `INCLUDE`); `LIB` definido em `win_complete`/`distrib`/`setupgui`/`test_examples` | `build/mif/cproj.mif`, `build/win_complete.bat`, `build/distrib_build.bat`, `build/setupgui_build.bat`, `build/setupgui_deps.bat`, `build/setupgui_deps2.bat`, `build/test_examples.bat` | FASE 46 |
+| FIX-073 | `build/tools_backup.bat`: snapshot/restore de `build/binbuild`, `rel/binnt`, `distrib/ow/bin` e `version.bin`; protege o bootstrap de `clean`/`bootclean` | `build/tools_backup.bat` | FASE 46 |
 
 ## 2. Runtime libraries (CRT / math / C++ / Fortran)
 
@@ -85,6 +88,7 @@ suítes `ctest` 4/5 e `plustest` 23 PASS (deltas pré-existentes, FASE 29).
 | FIX-067 | Instaladores rebuildados pós-FASE 36–41: `c` (18.713.909 bytes) + `f77` (14.534.857 bytes), `DISTRIB_RC=0`, com `wlink/wfc/wfl` 2.0.5 + `math3r` self-host + `wlink.lnk` curado; regressão `PASS=4 FAIL=0` pré+pós-distro; diary `BUILD-00044/45` (instaladores) + `00046–49` (regressão); `wcc` 2.0.1 e driver `wpp` 2.0 unificam na próxima pipeline cheia | `distrib/ow/bin/` | FASE 42 |
 | FIX-068 | Item 6 fechado sem código novo (veredito, não fix): os 4 FAILs do `plustest positive` são pré-existentes — float03 exige `==`→0 p/ literais que são o mesmo double em IEEE-754 (prova gcc `0x1.c71c71c71c71cp-4`; invariante a `-ox/-fpc/-zfp/-ms`); i6403 de escada `__int64`/ULL-vs-UI64; opt03 de null-check dobrado pelo `-ox`; setjmp03 só no link `-br` da suite (`targ_br_wnt386`, estático passa); suite real re-rodada REL vs BW com `.outs` byte-idênticos (`fc` sem diferenças) | docs | FASE 43 |
 | FIX-069 | Unificação `wcc`/`wpp` em 2.0.6: `version.bin` 5→6 (1× `bumpver`) + rebuild limpo `cc`/`plusplus` (`386/nt386.dll`, `386/nt386.rtd`, `i86/nt386.dll`; `target_386`+`target_i86`, todos `RC=0`) + `cprel`; drivers `wcc386/wpp386/wcc/wpp` em 2.0.6 com DLLs rebuildadas; `PASS=4 FAIL=0` com os compiladores novos + instaladores rebuildados (`DISTRIB_RC=0`) | `rel/binnt/wcc*.exe`, `rel/binnt/wpp*.exe`, `rel/binnt/wccd*.dll`, `rel/binnt/wppd*.dll`, `distrib/ow/bin/` | FASE 44 |
+| FIX-074 | Release 2.0.7: `version.bin` 6→7; `wcc`/`wpp` (32+16), `wlink`, `wmake`, `wrc` em 2.0.7; `wfc`/`wfl` seguem 2.0.5; clean + `win_complete` + `commonui`/`uninstal` + `setupgui_deps`/`setupgui`; `PASS=4 FAIL=0`; `DISTRIB_RC=0` (c 18.465.990 + f77 14.255.003); portátil 27.602.323 + `SHA256SUMS.txt` | `build/version.bin`, `rel/`, `distrib/ow/bin/`, docs | FASE 46 |
 
 ## 5. Limites conhecidos (documentados, não são regressão)
 

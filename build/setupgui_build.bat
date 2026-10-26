@@ -18,6 +18,7 @@ REM cmnvars restaura WATCOM/INCLUDE: reaplicar self-host
 set WATCOM=%OWROOT%\rel
 set INCLUDE=%WATCOM%\h;%WATCOM%\h\nt
 set LIBPATH=%WATCOM%\lib386\nt;%WATCOM%\lib386
+set LIB=%WATCOM%\lib386\nt;%WATCOM%\lib386
 set WLINK_LNK=%OWROOT%\build\bwlink.lnk
 echo WATCOM=%WATCOM% OWGUINOBUILD=[%OWGUINOBUILD%]
 cd /d "%OWROOT%\bld\setupgui\nt386.gui"

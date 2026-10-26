@@ -1295,7 +1295,7 @@ int   fnmatch( const char *patt, const char *s, int flags )
 
 #ifdef __WATCOMC__
 
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
 int setenv( const char *name, const char *newvalue, int overwrite )
 /*****************************************************************/
@@ -1337,7 +1337,7 @@ void unsetenv( const char *name )
 }
   #endif
 
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
 int unsetenv( const char *name )
 /******************************/

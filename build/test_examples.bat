@@ -6,6 +6,7 @@ set PATH=%WATCOM%\binnt;%OWROOT%\build\binbuild;%PATH%
 set INCLUDE=%WATCOM%\h;%WATCOM%\h\nt
 set LIB386=%WATCOM%\lib386
 set LIBPATH=%WATCOM%\lib386\nt
+set LIB=%WATCOM%\lib386\nt;%WATCOM%\lib386
 set WLINK_LNK=%OWROOT%\build\bwlink.lnk
 set T=%OWROOT%\build\tmp_test
 if not exist "%T%" mkdir "%T%"

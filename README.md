@@ -2,14 +2,14 @@
   <img src="OpenWatcom.png" alt="Open Watcom V2 — LabsObjects Edition" width="240">
 </p>
 
-# Open Watcom V2 — LabsObjects Edition (Version 2.0.6)
+# Open Watcom V2 — LabsObjects Edition (Version 2.0.7)
 
 > Sabor Windows x64 da Open Watcom V2, mantido pela **LabsObjects**:
 > toolchain C/C++/FORTRAN 32-bit completa e auto-hospedada, construída
 > com GCC/MinGW bootstrap + auto-hospedagem (`builder boot`/`rel`).
 > Proposta: distribuição pronta para uso em Windows 10/11 x64, sem
 > targets 16-bit/DOS/OS/2, com validação por suítes de regressão.
-> Pipeline completa documentada em [`marco.md`](marco.md) (FASEs 0–44);
+> Pipeline completa documentada em [`marco.md`](marco.md) (FASEs 0–46);
 > regras de contribuição em [`skill.md`](skill.md).
 
 ## Estado desta edição
@@ -22,8 +22,8 @@
   `plbr20`, `plbs20` + import libs (incl. variantes MT).
 - Layout upstream driver+DLL (`wccd386`, `wppd386`, `wlinkd`, `wrcd`,
   `weditcw/viw`) — banners `Version 2.0.<N>` (nesta build: `wcc`/`wpp`
-  (32 e 16-bit) em **2.0.6**, `wlink`/`wfc`/`wfl` em 2.0.5 — unificam na
-  próxima pipeline cheia;
+  (32 e 16-bit), `wlink`, `wmake` e `wrc` em **2.0.7**; `wfc`/`wfl` em
+  2.0.5 — unificam na próxima pipeline de Fortran;
   auto-incremento por build: `build/version.bin` + `build/bumpver.bat`).
 - Validação: `build/test_examples.bat` (`PASS=4 FAIL=0`: C, C++,
   math `-fpc`, Fortran via `wfl386`), suítes `ctest` (4/5) e `plustest`
@@ -154,7 +154,7 @@ espaços). A raiz é `OWROOT`. Separador `\` (Windows). Layout:
 
     Raiz
       - OpenWatcom.png — logo desta edição (582×675, 353 KB, otimizado).
-      - marco.md — pipeline FASEs 0–44 (o que funciona + pendências).
+      - marco.md — pipeline FASEs 0–46 (o que funciona + pendências).
       - skill.md — regras de engenharia/entrega.
       - license.txt — OWPL 1.0 + adendo LabsObjects.
       - setvars_ow.bat / setvars_gcc.bat / build_full.bat — ambientes.

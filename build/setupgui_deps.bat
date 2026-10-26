@@ -16,6 +16,7 @@ call "%OWROOT%\cmnvars.bat"
 set WATCOM=%OWROOT%\rel
 set INCLUDE=%WATCOM%\h;%WATCOM%\h\nt
 set LIBPATH=%WATCOM%\lib386\nt;%WATCOM%\lib386
+set LIB=%WATCOM%\lib386\nt;%WATCOM%\lib386
 set WLINK_LNK=%OWROOT%\build\bwlink.lnk
 for %%P in (wpi ui gui hlpview) do (
   echo ============ BUILD %%P os_nt cpu_386 ============
