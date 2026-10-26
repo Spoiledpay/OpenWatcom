@@ -137,7 +137,7 @@
   #else
     #define _mkgmtime   timegm
   #endif
- #elif defined( _MSC_VER ) || defined( __GNUC__ )
+ #elif defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
     #ifndef __int64
     #define __int64 long long
     #endif
@@ -190,7 +190,7 @@
 
  #if defined( __UNIX__ )
 
- #elif defined( _MSC_VER ) || defined( __GNUC__ )
+ #elif defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
     typedef struct find_t {
         char            reserved[21];       /* reserved for use by DOS    */
@@ -238,7 +238,7 @@
     extern int      spawnlp( int mode, const char *path, const char *cmd, ... );
     extern int      spawnvp( int mode, const char *cmd, const char * const *args );
 
- #elif defined( _MSC_VER ) || defined( __GNUC__ )
+ #elif defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
     extern int      setenv( const char *name, const char *newvalue, int overwrite );
     extern int      unsetenv( const char *name );

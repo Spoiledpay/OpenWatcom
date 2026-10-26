@@ -2153,6 +2153,43 @@ script: `%TEMP%\opencode\bld_ver206.bat`, padrão FASE 40).
 
 ---
 
+## FASE 45: CI CodeQL/Linux — guarda `__GNUC__` restrita a NT ✅ (26/10/2026)
+
+### 45.1 Diagnóstico
+
+Run #3 do workflow `CodeQL Advanced Static Analysis` (`Build DB`) falhou em
+~5s no commit `7469e29`. O `ci/codeql.sh` chama `build.sh boot`; o `posmake`
+compila `bld/watcom/c/clibext.c` com `-D__UNIX__` e GCC. A guarda local
+`#if defined( _MSC_VER ) || defined( __GNUC__ )` incluía `<windows.h>` no
+Linux → `fatal error: windows.h: No such file or directory`; `make` retornava
+2 e o CodeQL reportava apenas `Process completed with exit code 2`.
+
+O upstream usa somente `_MSC_VER`; a ampliação para `__GNUC__` foi feita para
+MinGW/NT, mas também casava com GCC em POSIX. O mesmo padrão existia em
+`clibext.c:736/775/1047` e `clibext.h:140/193/241`.
+
+### 45.2 Correção
+
+Guards restritos ao GCC em NT:
+
+```c
+#if defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
+```
+
+`ci/codeql.sh` passou a imprimir `build/$OWOBJDIR/bootx.log` quando o build
+falha, para o erro real aparecer no log do step.
+
+### 45.3 Validação
+
+- Ubuntu 24.04/GCC 13: antes falhava em `windows.h`; depois o `wmake` compila
+  e o `builder boot` avança (chegou a compilar `wres`).
+- MinGW/Strawberry GCC com `-D__NT__`: `clibext.c` compila `RC=0` (caminho
+  Windows preservado).
+- `clibext.h` mantém `#if !defined( __GNUC__ )` para `ssize_t`/`mode_t`
+  (MinGW já fornece; MSVC precisa dos typedefs).
+
+---
+
 ## CONTINUAR DEPOIS — estado e pendências (fechamento 10/10/2026)
 
 ### Estado final do dia (tudo verde)

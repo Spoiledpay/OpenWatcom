@@ -34,6 +34,7 @@ suítes `ctest` 4/5 e `plustest` 23 PASS (deltas pré-existentes, FASE 29).
 | FIX-012 | Infra `builder rel` documentada e funcional (makeinit via PATH, pmake embutido, `WLINK_LNK`) | `build/*.bat` (env) | FASE 15.1c |
 | FIX-013 | `OWNEWWGML=1` nos 15 `.bat` (wgml nativo 64-bit; sem DOSBOX p/ `.gh` de help e docs) | `build/*.bat` | FASE 21.3, 24, 26.2 |
 | FIX-014 | `.gitignore` += `*.tds` (ruído de build; `/build/*.bat` NÃO ignorado de propósito) | `.gitignore` | FASE 20.2, 26.2 |
+| FIX-070 | CI CodeQL (Linux/GCC): guards `_MSC_VER || __GNUC__` restritos a NT (`__GNUC__ && __NT__`) em `clibext.c/h` — `windows.h` não é mais incluído no Linux; `ci/codeql.sh` imprime `bootx.log` em falha | `bld/watcom/c/clibext.c`, `bld/watcom/h/clibext.h`, `ci/codeql.sh` | FASE 45 |
 
 ## 2. Runtime libraries (CRT / math / C++ / Fortran)
 

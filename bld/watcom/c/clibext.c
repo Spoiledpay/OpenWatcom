@@ -67,7 +67,7 @@
     #include <string.h>
     #include <ctype.h>
     #include <errno.h>
-  #if defined( _MSC_VER ) || defined( __GNUC__ )
+  #if defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
     #include <windows.h>
     #include "_dtaxxx.h"
     #include "ntext.h"
@@ -733,7 +733,7 @@ char *_cmdname( char *name )
     return( name );
 }
 
-#elif defined( _MSC_VER ) || defined( __GNUC__ )
+#elif defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
 char *_cmdname( char *name )
 {
@@ -772,7 +772,7 @@ char *_cmdname( char *name )
 
 #ifdef __WATCOMC__
 
-#elif defined( _MSC_VER ) || defined( __GNUC__ )
+#elif defined( _MSC_VER ) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
 int _bgetcmd( char *buffer, int len )
 {
@@ -1044,7 +1044,7 @@ void _searchenv( const char *name, const char *env_var, char *buffer )
 
 #ifdef __WATCOMC__
 
-#elif defined(_MSC_VER) || defined( __GNUC__ )
+#elif defined(_MSC_VER) || ( defined( __GNUC__ ) && defined( __NT__ ) )
 
 static const struct my_wctypes {
     const char  *name;
